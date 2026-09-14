@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/context/auth-context';
-import { formatCpf, normalizeText, validateCpf, validateEmail, validatePassword, validatePhone } from '@/services/business-rules';
+import { formatarCpf, normalizarTexto, validarCpf, validarEmail, validarSenha, validarTelefone } from '@/services/business-rules';
 
 export default function CadastroScreen() {
   const { register } = useAuth();
@@ -12,46 +12,46 @@ export default function CadastroScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [telefone, setTelefone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(false);
 
-  const clearFieldOnFocus = (setter: React.Dispatch<React.SetStateAction<string>>) => () => {
-    setter((current) => (current ? '' : current));
+  const limparCampoAoFocar = (atualizarCampo: React.Dispatch<React.SetStateAction<string>>) => () => {
+    atualizarCampo((valorAtual) => (valorAtual ? '' : valorAtual));
   };
 
-  const handleCpfChange = (value: string) => {
-    setCpf(formatCpf(value));
+  const manipularCpf = (valor: string) => {
+    setCpf(formatarCpf(valor));
   };
 
-  const handleRegister = async () => {
-    const cpfError = validateCpf(cpf);
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(senha);
-    const phoneError = validatePhone(telefone);
+  const realizarCadastro = async () => {
+    const erroCpf = validarCpf(cpf);
+    const erroEmail = validarEmail(email);
+    const erroSenha = validarSenha(senha);
+    const erroTelefone = validarTelefone(telefone);
 
     if (!nome.trim()) {
       Alert.alert('Cadastro', 'Informe seu nome completo.');
       return;
     }
 
-    if (cpfError || emailError || passwordError || phoneError) {
-      Alert.alert('Cadastro', cpfError || emailError || passwordError || phoneError || 'Dados inválidos.');
+    if (erroCpf || erroEmail || erroSenha || erroTelefone) {
+      Alert.alert('Cadastro', erroCpf || erroEmail || erroSenha || erroTelefone || 'Dados inválidos.');
       return;
     }
 
-    setLoading(true);
+    setCarregando(true);
     try {
       await register({
-        nome: normalizeText(nome),
+        nome: normalizarTexto(nome),
         cpf: cpf.replace(/\D/g, ''),
-        email: normalizeText(email),
-        senha: normalizeText(senha),
-        telefone: normalizeText(telefone),
+        email: normalizarTexto(email),
+        senha: normalizarTexto(senha),
+        telefone: normalizarTexto(telefone),
       });
       router.replace('/');
-    } catch (error: any) {
-      Alert.alert('Cadastro', error?.message || 'Não foi possível criar a conta.');
+    } catch (erro: any) {
+      Alert.alert('Cadastro', erro?.message || 'Não foi possível criar a conta.');
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   };
 
@@ -65,7 +65,7 @@ export default function CadastroScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>Nome completo</Text>
-        <TextInput style={styles.input} placeholder="Seu nome" placeholderTextColor="#7e8bb5" value={nome} onChangeText={setNome} onFocus={clearFieldOnFocus(setNome)} />
+        <TextInput style={styles.input} placeholder="Seu nome" placeholderTextColor="#7e8bb5" value={nome} onChangeText={setNome} onFocus={limparCampoAoFocar(setNome)} />
 
         <Text style={styles.label}>CPF</Text>
         <TextInput
@@ -74,22 +74,22 @@ export default function CadastroScreen() {
           placeholderTextColor="#7e8bb5"
           keyboardType="numeric"
           value={cpf}
-          onChangeText={handleCpfChange}
+          onChangeText={manipularCpf}
           autoCapitalize="none"
-          onFocus={clearFieldOnFocus(setCpf)}
+          onFocus={limparCampoAoFocar(setCpf)}
         />
 
         <Text style={styles.label}>E-mail</Text>
-        <TextInput style={styles.input} placeholder="seu@email.com" placeholderTextColor="#7e8bb5" keyboardType="email-address" value={email} onChangeText={setEmail} autoCapitalize="none" onFocus={clearFieldOnFocus(setEmail)} />
+        <TextInput style={styles.input} placeholder="seu@email.com" placeholderTextColor="#7e8bb5" keyboardType="email-address" value={email} onChangeText={setEmail} autoCapitalize="none" onFocus={limparCampoAoFocar(setEmail)} />
 
         <Text style={styles.label}>Senha</Text>
-        <TextInput style={styles.input} placeholder="Crie uma senha" placeholderTextColor="#7e8bb5" secureTextEntry value={senha} onChangeText={setSenha} onFocus={clearFieldOnFocus(setSenha)} />
+        <TextInput style={styles.input} placeholder="Crie uma senha" placeholderTextColor="#7e8bb5" secureTextEntry value={senha} onChangeText={setSenha} onFocus={limparCampoAoFocar(setSenha)} />
 
         <Text style={styles.label}>Telefone</Text>
-        <TextInput style={styles.input} placeholder="(11) 99999-9999" placeholderTextColor="#7e8bb5" keyboardType="phone-pad" value={telefone} onChangeText={setTelefone} onFocus={clearFieldOnFocus(setTelefone)} />
+        <TextInput style={styles.input} placeholder="(11) 99999-9999" placeholderTextColor="#7e8bb5" keyboardType="phone-pad" value={telefone} onChangeText={setTelefone} onFocus={limparCampoAoFocar(setTelefone)} />
 
-        <Pressable style={styles.primaryButton} onPress={handleRegister} disabled={loading}>
-          <Text style={styles.primaryButtonText}>{loading ? 'Cadastrando...' : 'Cadastrar'}</Text>
+        <Pressable style={styles.primaryButton} onPress={realizarCadastro} disabled={carregando}>
+          <Text style={styles.primaryButtonText}>{carregando ? 'Cadastrando...' : 'Cadastrar'}</Text>
         </Pressable>
       </View>
 

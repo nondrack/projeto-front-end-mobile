@@ -57,7 +57,26 @@ const fallbackSessions: Session[] = [
   { id: 6, movieId: 3, horario: '17:30', sala: 'Sala 2', tipo: 'IMAX', valor: 39 },
 ];
 
+const fallbackPurchases: Purchase[] = [
+  {
+    id: 'demo-1',
+    movie: 'Duna: Parte 2',
+    session: '18:50 • Sala 3',
+    type: 'IMAX',
+    seats: 'F5, F6',
+    quantity: 2,
+    value: 90,
+    dataCompra: new Date().toISOString(),
+    userEmail: 'cliente@cinemax.com.br',
+  },
+];
+
 const apiBaseUrl = (() => {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, '');
+  }
+
   const host = Platform.select({
     android: 'http://10.0.2.2:3000',
     ios: 'http://localhost:3000',
@@ -80,10 +99,16 @@ async function writeStorage(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
+async function getStoredToken(): Promise<string | null> {
+  return readStorage<string>(STORAGE_KEYS.token);
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = await getStoredToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
     ...options,
@@ -117,79 +142,95 @@ function normalizeSession(raw: any, fallbackMovieId = 1): Session {
   return {
     id: Number(raw.id_sessao ?? raw.id ?? fallbackMovieId),
     movieId: Number(raw.id_filme ?? raw.movieId ?? fallbackMovieId),
-    horario: String(raw.horario ?? raw.horario ?? '18:00'),
-    sala: String(raw.sala ?? raw.sala ?? 'Sala 1'),
-    tipo: String(raw.tipo ?? raw.tipo ?? '2D'),
+    horario: String(raw.horario ?? '18:00'),
+    sala: String(raw.sala ?? 'Sala 1'),
+    tipo: String(raw.tipo ?? '2D'),
     valor: Number(raw.preco ?? raw.valor ?? 35),
   };
 }
 
+function normalizePurchase(raw: any): Purchase {
+  return {
+    id: String(raw.id ?? raw.id_ingresso ?? `purchase-${Date.now()}`),
+    movie: String(raw.filme ?? raw.movie ?? 'Filme'),
+    session: String(raw.sessao ?? raw.session ?? 'Sessão'),
+    type: String(raw.tipo ?? raw.type ?? raw.metodo ?? '—'),
+    seats: String(raw.assento ?? raw.seats ?? '—'),
+    quantity: Number(raw.quantidade ?? raw.quantity ?? 1),
+    value: Number(raw.valor ?? raw.value ?? 0),
+    dataCompra: String(raw.dataCompra ?? raw.data_compra ?? new Date().toISOString()),
+    userEmail: raw.userEmail ?? raw.email ?? undefined,
+    paymentMethod: raw.metodo ?? raw.paymentMethod ?? undefined,
+    tipoIngresso: raw.tipoIngresso ?? undefined,
+  };
+}
+
+async function syncClientProfile(user: AuthResponse['user']) {
+  const profilePayload = {
+    nome: user.nome,
+    email: user.email,
+  };
+
+  try {
+    await request('/clientes/me', {
+      method: 'POST',
+      body: JSON.stringify(profilePayload),
+    });
+  } catch {
+    // A sincronização do cliente será reprocessada na próxima tentativa.
+  }
+}
+
+async function getClientProfile() {
+  try {
+    return await request<any>('/clientes/me');
+  } catch {
+    return null;
+  }
+}
+
+async function getAssentos(): Promise<Array<{ id_assento: number; fila: string; numero: string }>> {
+  try {
+    const data = await request<any[]>('/catalogo/assentos');
+    return Array.isArray(data)
+      ? data.map((assento) => ({
+          id_assento: Number(assento.id_assento ?? assento.id ?? 0),
+          fila: String(assento.fila ?? ''),
+          numero: String(assento.numero ?? ''),
+        }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export const cinemaApi = {
   async login(email: string, senha: string): Promise<AuthResponse> {
-    try {
-      const response = await request<AuthResponse>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, senha }),
-      });
-      await writeStorage(STORAGE_KEYS.token, response.token);
-      await writeStorage(STORAGE_KEYS.user, response.user);
-      return response;
-    } catch {
-      const normalizedEmail = String(email || '').trim().toLowerCase();
-      if (!normalizedEmail || !senha) {
-        throw new Error('Informe e-mail e senha válidos.');
-      }
+    const response = await request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, senha }),
+    });
 
-      const user: AuthResponse['user'] = {
-        id_usuario: 1,
-        nome: normalizedEmail.split('@')[0].replace(/[._-]/g, ' ') || 'Cliente',
-        email: normalizedEmail,
-        tipo_usuario: 'cliente',
-      };
+    await writeStorage(STORAGE_KEYS.token, response.token);
+    await writeStorage(STORAGE_KEYS.user, response.user);
+    await syncClientProfile(response.user);
 
-      const fallbackResponse: AuthResponse = {
-        token: 'local-demo-token',
-        user,
-      };
-
-      await writeStorage(STORAGE_KEYS.token, fallbackResponse.token);
-      await writeStorage(STORAGE_KEYS.user, user);
-      return fallbackResponse;
-    }
+    return response;
   },
 
   async register(userData: { nome: string; email: string; senha: string; cpf?: string; telefone?: string }) {
-    const payload = {
-      nome: userData.nome,
-      cpf: userData.cpf || '00000000000',
-      email: userData.email,
-      senha: userData.senha,
-      tipo_usuario: 'cliente',
-    };
-
-    try {
-      const response = await request<AuthResponse>('/usuarios', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      await writeStorage(STORAGE_KEYS.token, response.token ?? 'local-demo-token');
-      await writeStorage(STORAGE_KEYS.user, response.user ?? payload);
-      return response;
-    } catch {
-      const fallbackUser: AuthResponse['user'] = {
-        id_usuario: 1,
+    await request('/usuarios', {
+      method: 'POST',
+      body: JSON.stringify({
         nome: userData.nome,
+        cpf: userData.cpf || '00000000000',
         email: userData.email,
+        senha: userData.senha,
         tipo_usuario: 'cliente',
-      };
+      }),
+    });
 
-      await writeStorage(STORAGE_KEYS.token, 'local-demo-token');
-      await writeStorage(STORAGE_KEYS.user, fallbackUser);
-      return {
-        token: 'local-demo-token',
-        user: fallbackUser,
-      };
-    }
+    return this.login(userData.email, userData.senha);
   },
 
   async getMovies(): Promise<Movie[]> {
@@ -242,25 +283,88 @@ export const cinemaApi = {
   },
 
   async savePurchase(purchase: Purchase) {
-    const current = (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? [];
-    const updated = [purchase, ...current].slice(0, 20);
-    await writeStorage(STORAGE_KEYS.purchases, updated);
-    return updated;
+    const storedToken = await getStoredToken();
+
+    if (!storedToken) {
+      const current = (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? [];
+      const updated = [purchase, ...current].slice(0, 20);
+      await writeStorage(STORAGE_KEYS.purchases, updated);
+      return updated;
+    }
+
+    try {
+      const profile = (await getClientProfile()) ?? (await syncClientProfile((await readStorage<AuthResponse['user']>(STORAGE_KEYS.user)) as AuthResponse['user']));
+
+      if (!profile?.id_cliente) {
+        throw new Error('Cliente não foi encontrado na API.');
+      }
+
+      const assentos = await getAssentos();
+      const seats = purchase.seats
+        .split(',')
+        .map((seat) => seat.trim())
+        .filter(Boolean);
+
+      const createdPurchases: Array<{ id_ingresso: number }> = [];
+
+      for (const seat of seats) {
+        const assento = assentos.find((item) => `${item.fila}${item.numero}`.toUpperCase() === seat.toUpperCase());
+
+        if (!assento) {
+          continue;
+        }
+
+        const ingresso = await request<any>('/ingressos', {
+          method: 'POST',
+          body: JSON.stringify({
+            id_sessao: purchase.sessionId ?? 1,
+            id_cliente: Number(profile.id_cliente),
+            id_assento: assento.id_assento,
+            data_compra: purchase.dataCompra,
+          }),
+        });
+
+        createdPurchases.push(ingresso);
+      }
+
+      const paymentValue = seats.length > 0 ? Number((purchase.value / seats.length).toFixed(2)) : Number(purchase.value || 0);
+
+      for (const ingresso of createdPurchases) {
+        await request('/pagamentos', {
+          method: 'POST',
+          body: JSON.stringify({
+            id_ingresso: ingresso.id_ingresso,
+            valor: paymentValue,
+            metodo_pagamento: purchase.paymentMethod ?? 'pix',
+            data_pagamento: purchase.dataCompra,
+          }),
+        });
+      }
+
+      const current = (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? [];
+      const updated = [purchase, ...current].slice(0, 20);
+      await writeStorage(STORAGE_KEYS.purchases, updated);
+      return updated;
+    } catch {
+      const current = (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? [];
+      const updated = [purchase, ...current].slice(0, 20);
+      await writeStorage(STORAGE_KEYS.purchases, updated);
+      return updated;
+    }
   },
 
   async getPurchases(): Promise<Purchase[]> {
-    return (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? [
-      {
-        id: 'demo-1',
-        movie: 'Duna: Parte 2',
-        session: '18:50 • Sala 3',
-        type: 'IMAX',
-        seats: 'F5, F6',
-        quantity: 2,
-        value: 90,
-        dataCompra: new Date().toISOString(),
-        userEmail: 'cliente@cinemax.com.br',
-      },
-    ];
+    const token = await getStoredToken();
+
+    if (!token) {
+      return (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? fallbackPurchases;
+    }
+
+    try {
+      const data = await request<any[]>('/me/compras');
+      return Array.isArray(data) ? data.map((purchase) => normalizePurchase(purchase)) : fallbackPurchases;
+    } catch {
+      return (await readStorage<Purchase[]>(STORAGE_KEYS.purchases)) ?? fallbackPurchases;
+    }
   },
 };

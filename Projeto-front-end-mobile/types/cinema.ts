@@ -42,4 +42,6 @@ export type Purchase = {
   userEmail?: string;
   paymentMethod?: string;
   tipoIngresso?: string;
+  movieId?: number;
+  sessionId?: number;
 };

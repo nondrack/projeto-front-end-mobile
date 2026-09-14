@@ -6,19 +6,19 @@ import { cinemaApi } from '@/services/cinema-api';
 import type { Purchase } from '@/types/cinema';
 
 export default function ComprasScreen() {
-  const [historico, setHistorico] = useState<Purchase[]>([]);
+  const [registrosCompras, setRegistrosCompras] = useState<Purchase[]>([]);
 
   useEffect(() => {
-    const load = async () => {
-      setHistorico(await cinemaApi.getPurchases());
+    const carregarCompras = async () => {
+      setRegistrosCompras(await cinemaApi.getPurchases());
     };
 
-    void load();
+    void carregarCompras();
   }, []);
 
-  const totalPago = useMemo(
-    () => historico.reduce((acc, item) => acc + Number(item.value || 0), 0),
-    [historico],
+  const valorTotalGasto = useMemo(
+    () => registrosCompras.reduce((acumulador, compra) => acumulador + Number(compra.value || 0), 0),
+    [registrosCompras],
   );
 
   return (
@@ -31,7 +31,7 @@ export default function ComprasScreen() {
       <Text style={styles.title}>Minhas compras</Text>
       <Text style={styles.subtitle}>Histórico de ingressos e pagamentos realizados na plataforma.</Text>
 
-      {historico.length === 0 ? (
+      {registrosCompras.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>Você ainda não possui compras registradas.</Text>
         </View>
@@ -40,27 +40,27 @@ export default function ComprasScreen() {
           <View style={styles.summaryCard}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Total de compras</Text>
-              <Text style={styles.summaryValue}>{historico.length}</Text>
+              <Text style={styles.summaryValue}>{registrosCompras.length}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Valor total</Text>
-              <Text style={styles.summaryValue}>R$ {totalPago.toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.summaryValue}>R$ {valorTotalGasto.toFixed(2).replace('.', ',')}</Text>
             </View>
           </View>
 
-          {historico.map((item) => (
+          {registrosCompras.map((compra) => (
             <View key={item.id} style={styles.card}>
               <View style={styles.headerRow}>
-                <Text style={styles.filme}>{item.movie}</Text>
-                <Text style={styles.valor}>R$ {Number(item.value).toFixed(2).replace('.', ',')}</Text>
+                <Text style={styles.filme}>{compra.movie}</Text>
+                <Text style={styles.valor}>R$ {Number(compra.value).toFixed(2).replace('.', ',')}</Text>
               </View>
 
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Ingresso:</Text> #{item.id}</Text>
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Sessão:</Text> {item.session}</Text>
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Assento:</Text> {item.seats}</Text>
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Tipo:</Text> {item.tipoIngresso ?? '—'}</Text>
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Método:</Text> {item.paymentMethod ?? item.type}</Text>
-              <Text style={styles.meta}><Text style={styles.metaLabel}>Compra:</Text> {new Date(item.dataCompra).toLocaleDateString('pt-BR')}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Ingresso:</Text> #{compra.id}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Sessão:</Text> {compra.session}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Assento:</Text> {compra.seats}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Tipo:</Text> {compra.tipoIngresso ?? '—'}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Método:</Text> {compra.paymentMethod ?? compra.type}</Text>
+              <Text style={styles.meta}><Text style={styles.metaLabel}>Compra:</Text> {new Date(compra.dataCompra).toLocaleDateString('pt-BR')}</Text>
             </View>
           ))}
         </>

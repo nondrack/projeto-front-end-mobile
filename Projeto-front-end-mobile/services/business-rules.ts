@@ -1,93 +1,103 @@
-export function normalizeText(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
+export function normalizarTexto(valor: string) {
+  return valor.trim().replace(/\s+/g, ' ');
 }
 
-export function validateEmail(email: string) {
-  const normalized = normalizeText(email);
-  if (!normalized) {
+export function validarEmail(email: string) {
+  const emailNormalizado = normalizarTexto(email);
+
+  if (!emailNormalizado) {
     return 'Informe seu e-mail.';
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(normalized)) {
+  const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!regexEmail.test(emailNormalizado)) {
     return 'Informe um e-mail válido.';
   }
 
   return null;
 }
 
-export function validatePassword(password: string) {
-  const normalized = normalizeText(password);
-  if (!normalized) {
+export function validarSenha(senha: string) {
+  const senhaNormalizada = normalizarTexto(senha);
+
+  if (!senhaNormalizada) {
     return 'Informe sua senha.';
   }
 
-  if (normalized.length < 6) {
+  if (senhaNormalizada.length < 6) {
     return 'A senha deve ter pelo menos 6 caracteres.';
   }
 
   return null;
 }
 
-export function formatCpf(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
+export function formatarCpf(valor: string) {
+  const digitos = valor.replace(/\D/g, '').slice(0, 11);
 
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digitos.length <= 3) return digitos;
+  if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`;
+  if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`;
 
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
 }
 
-export function validateCpf(value: string) {
-  const digits = value.replace(/\D/g, '');
+export function validarCpf(valor: string) {
+  const digitos = valor.replace(/\D/g, '');
 
-  if (digits.length !== 11) {
+  if (digitos.length !== 11) {
     return 'Informe um CPF válido com 11 dígitos.';
   }
 
   return null;
 }
 
-export function validatePhone(value: string) {
-  const digits = value.replace(/\D/g, '');
+export function validarTelefone(valor: string) {
+  const digitos = valor.replace(/\D/g, '');
 
-  if (!digits || digits.length < 10) {
+  if (!digitos || digitos.length < 10) {
     return 'Informe um telefone válido.';
   }
 
   return null;
 }
 
-export function buildTicketSummary(qtdInteira: number, qtdMeia: number) {
-  return `${qtdInteira} inteira(s) / ${qtdMeia} meia(s)`;
+export function construirResumoIngressos(quantidadeInteira: number, quantidadeMeia: number) {
+  return `${quantidadeInteira} inteira(s) / ${quantidadeMeia} meia(s)`;
 }
 
-export function calculatePurchaseTotal({ basePrice, qtdInteira, qtdMeia }: { basePrice: number; qtdInteira: number; qtdMeia: number }) {
-  const valorInteira = Number(basePrice || 0);
-  const valorMeia = Number(((basePrice || 0) / 2).toFixed(2));
+export function calcularValorTotalCompra({
+  valorBase,
+  quantidadeInteira,
+  quantidadeMeia,
+}: {
+  valorBase: number;
+  quantidadeInteira: number;
+  quantidadeMeia: number;
+}) {
+  const valorEntradaInteira = Number(valorBase || 0);
+  const valorEntradaMeia = Number(((valorBase || 0) / 2).toFixed(2));
 
-  return Number((qtdInteira * valorInteira + qtdMeia * valorMeia).toFixed(2));
+  return Number((quantidadeInteira * valorEntradaInteira + quantidadeMeia * valorEntradaMeia).toFixed(2));
 }
 
-export function validatePurchaseSelection({
+export function validarSelecaoCompra({
   totalIngressos,
-  selectedSeats,
-  paymentMethod,
+  assentosSelecionados,
+  formaPagamento,
 }: {
   totalIngressos: number;
-  selectedSeats: string[];
-  paymentMethod: string;
+  assentosSelecionados: string[];
+  formaPagamento: string;
 }) {
   if (totalIngressos <= 0) {
     return 'Selecione pelo menos 1 ingresso.';
   }
 
-  if (selectedSeats.length !== totalIngressos) {
+  if (assentosSelecionados.length !== totalIngressos) {
     return `Selecione exatamente ${totalIngressos} assento(s) para continuar.`;
   }
 
-  if (!paymentMethod) {
+  if (!formaPagamento) {
     return 'Escolha a forma de pagamento antes de confirmar.';
   }
 

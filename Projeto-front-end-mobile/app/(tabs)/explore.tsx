@@ -2,7 +2,7 @@ import { Link } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const programacao = [
+const sessoesDoDia = [
   { titulo: 'Aventura Nocturna', horario: '14:40', sala: 'Sala 1', tipo: '2D' },
   { titulo: 'Horizonte Solar', horario: '16:10', sala: 'Sala 2', tipo: '3D' },
   { titulo: 'Cidade dos Reflexos', horario: '18:50', sala: 'Sala 3', tipo: 'IMAX' },
@@ -26,7 +26,7 @@ export default function ProgramacaoScreen() {
         <Text style={styles.dateChipMuted}>Sábado</Text>
       </View>
 
-      {programacao.map((sessao) => (
+      {sessoesDoDia.map((sessao) => (
         <Link key={sessao.titulo} href="/detalhes" asChild>
           <Pressable style={styles.sessionCard}>
             <View style={styles.sessionInfo}>

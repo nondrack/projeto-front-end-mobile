@@ -7,116 +7,116 @@ import { buildTicketSummary, calculatePurchaseTotal, validatePurchaseSelection }
 import { cinemaApi } from '@/services/cinema-api';
 import type { Movie, Purchase, Session } from '@/types/cinema';
 
-const PAYMENT_OPTIONS = [
+const opcoesPagamento = [
   { value: 'pix', title: 'Pix', description: 'Aprovação imediata' },
   { value: 'cartao', title: 'Cartão', description: 'Crédito ou débito' },
   { value: 'dinheiro', title: 'Dinheiro', description: 'Pagamento no caixa' },
 ];
 
-const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-const OCCUPIED_SEATS = new Set(['A1', 'A3', 'B5', 'C2', 'D6', 'E7', 'F4', 'G8']);
+const linhasAssentos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const assentosOcupados = new Set(['A1', 'A3', 'B5', 'C2', 'D6', 'E7', 'F4', 'G8']);
 
-function generateSeats() {
-  const seats: string[] = [];
+function gerarAssentosDisponiveis() {
+  const assentos: string[] = [];
 
-  for (const row of ROWS) {
-    for (let number = 1; number <= 8; number += 1) {
-      seats.push(`${row}${number}`);
+  for (const linha of linhasAssentos) {
+    for (let numero = 1; numero <= 8; numero += 1) {
+      assentos.push(`${linha}${numero}`);
     }
   }
 
-  return seats;
+  return assentos;
 }
 
 export default function IngressosScreen() {
   const params = useLocalSearchParams<{ movieId?: string; sessionId?: string }>();
   const { isAuthenticated, user } = useAuth();
-  const [movie, setMovie] = useState<Movie | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const [qtdInteira, setQtdInteira] = useState(2);
-  const [qtdMeia, setQtdMeia] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [filmeSelecionado, setFilmeSelecionado] = useState<Movie | null>(null);
+  const [sessaoSelecionada, setSessaoSelecionada] = useState<Session | null>(null);
+  const [assentosSelecionados, setAssentosSelecionados] = useState<string[]>([]);
+  const [quantidadeInteira, setQuantidadeInteira] = useState(2);
+  const [quantidadeMeia, setQuantidadeMeia] = useState(1);
+  const [metodoPagamento, setMetodoPagamento] = useState('');
 
   useEffect(() => {
-    const load = async () => {
+    const carregarDadosIngressos = async () => {
       const movieId = Number(params.movieId ?? 1);
       const sessionId = Number(params.sessionId ?? 1);
-      const [movieData, sessionsData] = await Promise.all([
+      const [filmeCarregado, sessoesCarregadas] = await Promise.all([
         cinemaApi.getMovieById(movieId),
         cinemaApi.getSessions(),
       ]);
 
-      setMovie(movieData);
-      setSession(sessionsData.find((item) => item.id === sessionId) ?? sessionsData[0] ?? null);
+      setFilmeSelecionado(filmeCarregado);
+      setSessaoSelecionada(sessoesCarregadas.find((item) => item.id === sessionId) ?? sessoesCarregadas[0] ?? null);
     };
 
-    void load();
+    void carregarDadosIngressos();
   }, [params.movieId, params.sessionId]);
 
-  const basePrice = session?.valor ?? movie?.price ?? 35;
-  const totalIngressos = qtdInteira + qtdMeia;
-  const valorInteira = Number(basePrice);
-  const valorMeia = Number((basePrice / 2).toFixed(2));
+  const precoBase = sessaoSelecionada?.valor ?? filmeSelecionado?.price ?? 35;
+  const totalIngressos = quantidadeInteira + quantidadeMeia;
+  const valorInteira = Number(precoBase);
+  const valorMeia = Number((precoBase / 2).toFixed(2));
 
   const total = useMemo(
-    () => calculatePurchaseTotal({ basePrice: valorInteira, qtdInteira, qtdMeia }),
-    [qtdInteira, qtdMeia, valorInteira],
+    () => calculatePurchaseTotal({ basePrice: valorInteira, qtdInteira: quantidadeInteira, qtdMeia: quantidadeMeia }),
+    [quantidadeInteira, quantidadeMeia, valorInteira],
   );
 
   useEffect(() => {
-    if (selectedSeats.length > totalIngressos) {
-      setSelectedSeats((current) => current.slice(0, totalIngressos));
+    if (assentosSelecionados.length > totalIngressos) {
+      setAssentosSelecionados((assentosAtuais) => assentosAtuais.slice(0, totalIngressos));
     }
-  }, [selectedSeats, totalIngressos]);
+  }, [assentosSelecionados, totalIngressos]);
 
-  const allSeats = useMemo(() => generateSeats(), []);
-  const ticketSummary = buildTicketSummary(qtdInteira, qtdMeia);
+  const todosAssentos = useMemo(() => gerarAssentosDisponiveis(), []);
+  const resumoIngressos = buildTicketSummary(quantidadeInteira, quantidadeMeia);
 
-  const ajustarQuantidade = (tipo: 'inteira' | 'meia', operacao: 'mais' | 'menos') => {
+  const ajustarQuantidadeIngressos = (tipo: 'inteira' | 'meia', operacao: 'mais' | 'menos') => {
     if (tipo === 'inteira') {
-      setQtdInteira((current) => {
-        const next = operacao === 'mais' ? current + 1 : current - 1;
-        return Math.max(0, Math.min(10, next));
+      setQuantidadeInteira((quantidadeAtual) => {
+        const proximaQuantidade = operacao === 'mais' ? quantidadeAtual + 1 : quantidadeAtual - 1;
+        return Math.max(0, Math.min(10, proximaQuantidade));
       });
       return;
     }
 
-    setQtdMeia((current) => {
-      const next = operacao === 'mais' ? current + 1 : current - 1;
-      return Math.max(0, Math.min(10, next));
+    setQuantidadeMeia((quantidadeAtual) => {
+      const proximaQuantidade = operacao === 'mais' ? quantidadeAtual + 1 : quantidadeAtual - 1;
+      return Math.max(0, Math.min(10, proximaQuantidade));
     });
   };
 
-  const toggleSeat = (seat: string) => {
-    if (OCCUPIED_SEATS.has(seat)) {
+  const alternarSelecaoAssento = (assento: string) => {
+    if (assentosOcupados.has(assento)) {
       return;
     }
 
-    if (selectedSeats.includes(seat)) {
-      setSelectedSeats((current) => current.filter((item) => item !== seat));
+    if (assentosSelecionados.includes(assento)) {
+      setAssentosSelecionados((assentosAtuais) => assentosAtuais.filter((item) => item !== assento));
       return;
     }
 
-    if (selectedSeats.length >= totalIngressos) {
+    if (assentosSelecionados.length >= totalIngressos) {
       Alert.alert('Assentos', `Você já selecionou ${totalIngressos} assento(s) para essa compra.`);
       return;
     }
 
-    setSelectedSeats((current) => [...current, seat]);
+    setAssentosSelecionados((assentosAtuais) => [...assentosAtuais, assento]);
   };
 
-  const handleGoToMovieDetails = () => {
-    if (movie?.id) {
-      router.push({ pathname: '/detalhes', params: { id: String(movie.id) } });
+  const abrirDetalhesFilme = () => {
+    if (filmeSelecionado?.id) {
+      router.push({ pathname: '/detalhes', params: { id: String(filmeSelecionado.id) } });
       return;
     }
 
     router.back();
   };
 
-  const handleConfirmPurchase = async () => {
-    if (!isAuthenticated || !user || !movie || !session) {
+  const confirmarCompra = async () => {
+    if (!isAuthenticated || !user || !filmeSelecionado || !sessaoSelecionada) {
       Alert.alert('Compra', 'Faça login antes de confirmar a compra.');
       router.replace('/login');
       return;
@@ -124,8 +124,8 @@ export default function IngressosScreen() {
 
     const purchaseValidationError = validatePurchaseSelection({
       totalIngressos,
-      selectedSeats,
-      paymentMethod,
+      selectedSeats: assentosSelecionados,
+      paymentMethod: metodoPagamento,
     });
 
     if (purchaseValidationError) {
@@ -145,16 +145,18 @@ export default function IngressosScreen() {
 
     const purchase: Purchase = {
       id: `purchase-${Date.now()}`,
-      movie: movie.title,
-      session: `${session.horario} • ${session.sala}`,
-      type: session.tipo,
-      seats: selectedSeats.join(', '),
+      movie: filmeSelecionado.title,
+      session: `${sessaoSelecionada.horario} • ${sessaoSelecionada.sala}`,
+      type: sessaoSelecionada.tipo,
+      seats: assentosSelecionados.join(', '),
       quantity: totalIngressos,
       value: total,
       dataCompra: new Date().toISOString(),
       userEmail: user.email,
-      paymentMethod,
-      tipoIngresso: ticketSummary,
+      paymentMethod: metodoPagamento,
+      tipoIngresso: resumoIngressos,
+      movieId: filmeSelecionado.id,
+      sessionId: sessaoSelecionada.id,
     };
 
     await cinemaApi.savePurchase(purchase);
@@ -168,7 +170,7 @@ export default function IngressosScreen() {
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Voltar</Text>
         </Pressable>
-        <Pressable style={styles.detailsButton} onPress={handleGoToMovieDetails}>
+        <Pressable style={styles.detailsButton} onPress={abrirDetalhesFilme}>
           <Text style={styles.detailsButtonText}>Filme</Text>
         </Pressable>
         <Pressable style={styles.homeButton} onPress={() => router.replace('/')}>
@@ -182,17 +184,17 @@ export default function IngressosScreen() {
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={styles.label}>Filme</Text>
-          <Text style={styles.value}>{movie?.title ?? 'Carregando...'}</Text>
+          <Text style={styles.value}>{filmeSelecionado?.title ?? 'Carregando...'}</Text>
         </View>
 
         <View style={styles.rowBetween}>
           <Text style={styles.label}>Sessão</Text>
-          <Text style={styles.value}>{session ? `${session.horario} • ${session.sala}` : 'Carregando...'}</Text>
+          <Text style={styles.value}>{sessaoSelecionada ? `${sessaoSelecionada.horario} • ${sessaoSelecionada.sala}` : 'Carregando...'}</Text>
         </View>
 
         <View style={styles.rowBetween}>
           <Text style={styles.label}>Tipo da sessão</Text>
-          <Text style={styles.value}>{session?.tipo ?? '—'}</Text>
+          <Text style={styles.value}>{sessaoSelecionada?.tipo ?? '—'}</Text>
         </View>
       </View>
 
@@ -200,31 +202,31 @@ export default function IngressosScreen() {
         <Text style={styles.sectionTitle}>1. Escolha tipo e quantidade</Text>
 
         <View style={styles.ticketRow}>
-          <View style={[styles.ticketCard, qtdInteira > 0 && styles.ticketCardActive]}>
+          <View style={[styles.ticketCard, quantidadeInteira > 0 && styles.ticketCardActive]}>
             <Text style={styles.ticketBadge}>Inteira</Text>
             <Text style={styles.ticketLabel}>Inteira</Text>
             <Text style={styles.ticketPrice}>R$ {valorInteira.toFixed(2).replace('.', ',')}</Text>
             <View style={styles.counterRow}>
-              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidade('inteira', 'menos')}>
+              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidadeIngressos('inteira', 'menos')}>
                 <Text style={styles.counterText}>-</Text>
               </Pressable>
-              <Text style={styles.counterValue}>{qtdInteira}</Text>
-              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidade('inteira', 'mais')}>
+              <Text style={styles.counterValue}>{quantidadeInteira}</Text>
+              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidadeIngressos('inteira', 'mais')}>
                 <Text style={styles.counterText}>+</Text>
               </Pressable>
             </View>
           </View>
 
-          <View style={[styles.ticketCard, qtdMeia > 0 && styles.ticketCardActive]}>
+          <View style={[styles.ticketCard, quantidadeMeia > 0 && styles.ticketCardActive]}>
             <Text style={[styles.ticketBadge, styles.ticketBadgeMeia]}>Meia</Text>
             <Text style={styles.ticketLabel}>Meia entrada</Text>
             <Text style={styles.ticketPrice}>R$ {valorMeia.toFixed(2).replace('.', ',')}</Text>
             <View style={styles.counterRow}>
-              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidade('meia', 'menos')}>
+              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidadeIngressos('meia', 'menos')}>
                 <Text style={styles.counterText}>-</Text>
               </Pressable>
-              <Text style={styles.counterValue}>{qtdMeia}</Text>
-              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidade('meia', 'mais')}>
+              <Text style={styles.counterValue}>{quantidadeMeia}</Text>
+              <Pressable style={styles.counterButton} onPress={() => ajustarQuantidadeIngressos('meia', 'mais')}>
                 <Text style={styles.counterText}>+</Text>
               </Pressable>
             </View>
@@ -240,21 +242,21 @@ export default function IngressosScreen() {
         <Text style={styles.screenBar}>TELA</Text>
 
         <View style={styles.seatGrid}>
-          {allSeats.map((seat) => {
-            const isOccupied = OCCUPIED_SEATS.has(seat);
-            const isSelected = selectedSeats.includes(seat);
+          {todosAssentos.map((assento) => {
+            const isOccupied = assentosOcupados.has(assento);
+            const isSelected = assentosSelecionados.includes(assento);
 
             return (
               <Pressable
-                key={seat}
+                key={assento}
                 disabled={isOccupied}
-                onPress={() => toggleSeat(seat)}
+                onPress={() => alternarSelecaoAssento(assento)}
                 style={[
                   styles.seat,
                   isOccupied && styles.seatOccupied,
                   isSelected && styles.seatSelected,
                 ]}>
-                <Text style={styles.seatText}>{seat}</Text>
+                <Text style={styles.seatText}>{assento}</Text>
               </Pressable>
             );
           })}
@@ -266,12 +268,12 @@ export default function IngressosScreen() {
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>3. Forma de pagamento</Text>
 
-        {PAYMENT_OPTIONS.map((option) => {
-          const selected = paymentMethod === option.value;
+        {opcoesPagamento.map((option) => {
+          const selected = metodoPagamento === option.value;
           return (
             <Pressable
               key={option.value}
-              onPress={() => setPaymentMethod(option.value)}
+              onPress={() => setMetodoPagamento(option.value)}
               style={[styles.paymentOption, selected && styles.paymentOptionSelected]}>
               <Text style={styles.paymentTitle}>{option.title}</Text>
               <Text style={styles.paymentDescription}>{option.description}</Text>
@@ -282,16 +284,16 @@ export default function IngressosScreen() {
 
       <View style={styles.summaryPanel}>
         <Text style={styles.summaryLabel}>Assentos</Text>
-        <Text style={styles.summaryValue}>{selectedSeats.length > 0 ? selectedSeats.join(', ') : 'Nenhum'}</Text>
+        <Text style={styles.summaryValue}>{assentosSelecionados.length > 0 ? assentosSelecionados.join(', ') : 'Nenhum'}</Text>
 
         <Text style={styles.summaryLabel}>Tipo</Text>
-        <Text style={styles.summaryValue}>{ticketSummary}</Text>
+        <Text style={styles.summaryValue}>{resumoIngressos}</Text>
 
         <Text style={styles.summaryLabel}>Total</Text>
         <Text style={styles.summaryValue}>R$ {total.toFixed(2).replace('.', ',')}</Text>
       </View>
 
-      <Pressable style={styles.primaryButton} onPress={handleConfirmPurchase}>
+      <Pressable style={styles.primaryButton} onPress={confirmarCompra}>
         <Text style={styles.primaryButtonText}>Confirmar pagamento</Text>
       </Pressable>
     </ScrollView>

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import { cinemaApi } from '@/services/cinema-api';
 import type { Movie } from '@/types/cinema';
 
-const destaques = [
+const destaquesTelaInicial = [
   { label: '4 Salas 3D', text: 'Audio e imagem de primeira linha.' },
   { label: 'Combo Premium', text: 'Pipoca + bebida com desconto.' },
   { label: 'Assento Marcado', text: 'Escolha seu lugar antes de entrar.' },
@@ -14,15 +14,15 @@ const destaques = [
 
 export default function HomeScreen() {
   const { isAuthenticated, user } = useAuth();
-  const [filmes, setFilmes] = useState<Movie[]>([]);
+  const [filmesDisponiveis, setFilmesDisponiveis] = useState<Movie[]>([]);
 
   useEffect(() => {
-    const loadMovies = async () => {
-      const movies = await cinemaApi.getMovies();
-      setFilmes(movies);
+    const carregarFilmes = async () => {
+      const filmesCarregados = await cinemaApi.getMovies();
+      setFilmesDisponiveis(filmesCarregados);
     };
 
-    void loadMovies();
+    void carregarFilmes();
   }, []);
 
   return (
@@ -69,7 +69,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.featureRow}>
-        {destaques.map((item) => (
+        {destaquesTelaInicial.map((item) => (
           <View key={item.label} style={styles.featureCard}>
             <Text style={styles.featureLabel}>{item.label}</Text>
             <Text style={styles.featureText}>{item.text}</Text>
@@ -82,7 +82,7 @@ export default function HomeScreen() {
         <Text style={styles.sectionAction}>Ver tudo</Text>
       </View>
 
-      {filmes.map((filme) => (
+      {filmesDisponiveis.map((filme) => (
         <View key={filme.id} style={styles.movieCard}>
           <Image source={{ uri: filme.image }} style={styles.moviePoster} />
 

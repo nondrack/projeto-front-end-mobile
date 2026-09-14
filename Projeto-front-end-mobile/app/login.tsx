@@ -3,35 +3,35 @@ import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/context/auth-context';
-import { normalizeText, validateEmail, validatePassword } from '@/services/business-rules';
+import { normalizarTexto, validarEmail, validarSenha } from '@/services/business-rules';
 
 export default function LoginScreen() {
   const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(false);
 
-  const clearFieldOnFocus = (setter: React.Dispatch<React.SetStateAction<string>>) => () => {
-    setter((current) => (current ? '' : current));
+  const limparCampoAoFocar = (atualizarCampo: React.Dispatch<React.SetStateAction<string>>) => () => {
+    atualizarCampo((valorAtual) => (valorAtual ? '' : valorAtual));
   };
 
-  const handleLogin = async () => {
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(senha);
+  const realizarLogin = async () => {
+    const erroEmail = validarEmail(email);
+    const erroSenha = validarSenha(senha);
 
-    if (emailError || passwordError) {
-      Alert.alert('Login', emailError || passwordError || 'Dados inválidos.');
+    if (erroEmail || erroSenha) {
+      Alert.alert('Login', erroEmail || erroSenha || 'Dados inválidos.');
       return;
     }
 
-    setLoading(true);
+    setCarregando(true);
     try {
-      await login(normalizeText(email), normalizeText(senha));
+      await login(normalizarTexto(email), normalizarTexto(senha));
       router.replace('/');
-    } catch (error: any) {
-      Alert.alert('Login', error?.message || 'Não foi possível entrar.');
+    } catch (erro: any) {
+      Alert.alert('Login', erro?.message || 'Não foi possível entrar.');
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   };
 
@@ -53,7 +53,7 @@ export default function LoginScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
-          onFocus={clearFieldOnFocus(setEmail)}
+          onFocus={limparCampoAoFocar(setEmail)}
         />
 
         <Text style={styles.label}>Senha</Text>
@@ -64,7 +64,7 @@ export default function LoginScreen() {
           secureTextEntry
           value={senha}
           onChangeText={setSenha}
-          onFocus={clearFieldOnFocus(setSenha)}
+          onFocus={limparCampoAoFocar(setSenha)}
         />
 
         <View style={styles.inlineRow}>
@@ -72,8 +72,8 @@ export default function LoginScreen() {
           <Text style={styles.linkText}>Esqueci a senha</Text>
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.primaryButtonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
+        <Pressable style={styles.primaryButton} onPress={realizarLogin} disabled={carregando}>
+          <Text style={styles.primaryButtonText}>{carregando ? 'Entrando...' : 'Entrar'}</Text>
         </Pressable>
 
         <View style={styles.dividerRow}>

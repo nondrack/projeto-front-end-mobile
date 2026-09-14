@@ -9,18 +9,18 @@ import type { Purchase } from '@/types/cinema';
 
 export default function PerfilScreen() {
   const { user, logout, isAuthenticated } = useAuth();
-  const [comprasRecentes, setComprasRecentes] = useState<Purchase[]>([]);
+  const [ultimasCompras, setUltimasCompras] = useState<Purchase[]>([]);
 
   useEffect(() => {
-    const load = async () => {
-      const purchases = await cinemaApi.getPurchases();
-      setComprasRecentes(purchases);
+    const carregarCompras = async () => {
+      const comprasDoUsuario = await cinemaApi.getPurchases();
+      setUltimasCompras(comprasDoUsuario);
     };
 
-    void load();
+    void carregarCompras();
   }, []);
 
-  const handleLogout = async () => {
+  const encerrarSessao = async () => {
     await logout();
     router.replace('/login');
   };
@@ -54,11 +54,11 @@ export default function PerfilScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{comprasRecentes.length}</Text>
+            <Text style={styles.statNumber}>{ultimasCompras.length}</Text>
             <Text style={styles.statLabel}>Ingressos</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{new Set(comprasRecentes.map((item) => item.movie)).size}</Text>
+            <Text style={styles.statNumber}>{new Set(ultimasCompras.map((item) => item.movie)).size}</Text>
             <Text style={styles.statLabel}>Filmes</Text>
           </View>
           <View style={styles.statCard}>
@@ -71,7 +71,7 @@ export default function PerfilScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Últimas compras</Text>
 
-          {comprasRecentes.map((item) => (
+          {ultimasCompras.map((item) => (
             <View key={item.id} style={styles.purchaseRow}>
               <View>
                 <Text style={styles.purchaseTitle}>{item.movie}</Text>
@@ -89,7 +89,7 @@ export default function PerfilScreen() {
             </Pressable>
           </Link>
 
-          <Pressable style={styles.secondaryButton} onPress={handleLogout}>
+          <Pressable style={styles.secondaryButton} onPress={encerrarSessao}>
             <Text style={styles.secondaryButtonText}>Sair</Text>
           </Pressable>
         </View>
