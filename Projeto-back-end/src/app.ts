@@ -69,14 +69,14 @@ router.get('/catalogo/sessoes/:id', SessoesController.getById);
 router.get('/catalogo/assentos', AssentosController.findAll);
 router.get('/catalogo/assentos/:id', AssentosController.getById);
 
-router.get('/users', UsersController.findAll);
 router.post('/users', UsersController.create);
-router.get('/users/:id', UsersController.getById);
+router.get('/users', requireAuth, requireAdmin, UsersController.findAll);
+router.get('/users/:id', requireAuth, UsersController.getById);
 router.put('/users/:id', requireAuth, UsersController.update);
 
-router.get('/usuarios', UsersController.findAll);
+router.get('/usuarios', requireAuth, requireAdmin, UsersController.findAll);
 router.post('/usuarios', UsersController.create);
-router.get('/usuarios/:id', UsersController.getById);
+router.get('/usuarios/:id', requireAuth, UsersController.getById);
 router.put('/usuarios/:id', requireAuth, UsersController.update);
 
 router.get('/clientes', requireAuth, requireAdmin, ClientesController.findAll);
@@ -136,6 +136,18 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 
     if (res.headersSent) {
         return next(error);
+    }
+
+    if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ message: 'Arquivo muito grande. O tamanho máximo permitido é 2MB.' });
+        }
+
+        return res.status(400).json({ message: 'Erro ao receber o arquivo enviado.' });
+    }
+
+    if (error.message.startsWith('Formato inválido.')) {
+        return res.status(400).json({ message: error.message });
     }
 
     return res.status(500).json({ message: 'Erro interno do servidor.' });

@@ -93,6 +93,11 @@ class UsersController {
         return Boolean(authUserId && authUserId === targetId);
     }
 
+    private static canReadProfile(authUser: AuthenticatedRequest["authUser"], targetId: number): boolean {
+        const role = String(authUser?.tipo_usuario || "").toLowerCase();
+        return role === "admin" || role === "adm" || Number(authUser?.id_usuario) === targetId;
+    }
+
     private static async ensureUniqueForCreate(input: NormalizedUserInput, res: Response): Promise<boolean> {
         const emailExists = await User.findOne({ where: { email: input.email } });
         if (emailExists) {
@@ -129,8 +134,13 @@ class UsersController {
         return res.status(200).json(users);
     }
 
-    static async getById(req: Request, res: Response) {
-        const user = await UsersController.findByIdOrNotFound(Number(req.params.id), res);
+    static async getById(req: AuthenticatedRequest, res: Response) {
+        const targetId = Number(req.params.id);
+        if (!UsersController.canReadProfile(req.authUser, targetId)) {
+            return res.status(403).json({ message: "Acesso restrito ao proprio usuario ou administrador." });
+        }
+
+        const user = await UsersController.findByIdOrNotFound(targetId, res);
         if (!user) return;
 
         return res.status(200).json(user);
@@ -149,7 +159,7 @@ class UsersController {
             cpf: input.cpf,
             email: input.email,
             senha: senhaHash,
-            tipo_usuario: payload.tipo_usuario,
+            tipo_usuario: "cliente",
         });
 
         return res.status(201).json(UsersController.serializeUser(user));

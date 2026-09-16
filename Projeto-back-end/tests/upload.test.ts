@@ -26,6 +26,16 @@ describe("📸 UPLOAD DE IMAGENS", () => {
     expect(error?.message).toContain("JPG");
   });
 
+  it("❌ deve rejeitar extensão e MIME incompatíveis", () => {
+    const error = validateImageFile({
+      originalname: "arquivo.jpg",
+      mimetype: "text/plain",
+      size: 100,
+    } as any);
+
+    expect(error).toBeTruthy();
+  });
+
   it("❌ deve rejeitar arquivo acima do tamanho máximo", () => {
     const error = validateImageFile({
       originalname: "poster.png",

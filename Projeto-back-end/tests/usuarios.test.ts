@@ -43,6 +43,7 @@ describe("🛡️ SEGURANÇA NO CADASTRO", () => {
     const req = { body: { cpf: "52998224725", nome: "Teste", email: "t@t.com", senha: "Abc@1234" } };
     await UsersController.create(req as any, res);
     expect(res.status).toHaveBeenCalledWith(201);
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({ tipo_usuario: "cliente" }));
   });
 
   it("❌ SABOTAGEM EDIÇÃO: Deve impedir alteração de e-mail na edição", async () => {

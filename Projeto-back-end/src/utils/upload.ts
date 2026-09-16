@@ -13,7 +13,7 @@ export function validateImageFile(file?: { originalname?: string; mimetype?: str
   const extension = path.extname(file.originalname ?? '').toLowerCase();
   const mime = String(file.mimetype ?? '').toLowerCase();
 
-  if (!ALLOWED_IMAGE_EXTENSIONS.has(extension) && !ALLOWED_IMAGE_MIME_TYPES.has(mime)) {
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(extension) || !ALLOWED_IMAGE_MIME_TYPES.has(mime)) {
     return new Error('Formato inválido. Envie apenas arquivos JPG, PNG ou WEBP.');
   }
 
