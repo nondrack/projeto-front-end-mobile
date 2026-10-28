@@ -9,6 +9,6 @@ COPY . .
 
 EXPOSE 8081 19000 19001 19002
 
-ENV HOST=localhost
+ENV HOST=0.0.0.0
 
-CMD ["npx", "expo", "start", "--host", "localhost", "--port", "8081", "--tunnel", "--clear"]
+CMD ["npx", "expo", "start", "--host", "lan", "--port", "8081"]

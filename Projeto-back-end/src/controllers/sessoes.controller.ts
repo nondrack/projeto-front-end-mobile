@@ -1,14 +1,10 @@
 import { Request, Response } from "express";
 import Sessao from "../models/Sessao";
+import { getCachedOrLoad, invalidateCache } from "../services/redisCache.service";
+import { publishDomainEvent } from "../services/redisEventBus.service";
+import type { SessaoPayloadDto } from "../dtos/sessao.dto";
 
-interface SessaoPayload {
-  [key: string]: unknown;
-  [key: symbol]: unknown;
-  id_filme?: number;
-  id_sala?: number;
-  horario?: string;
-  preco?: number;
-}
+const CACHE_NAMESPACE = "catalog:sessoes";
 
 class SessoesController {
   private static readonly NOT_FOUND_MESSAGE = "Sessao nao encontrada.";
@@ -25,7 +21,7 @@ class SessoesController {
     return { page, limit, offset: (page - 1) * limit };
   }
 
-  private static toPayload(body: SessaoPayload): SessaoPayload {
+  private static toPayload(body: SessaoPayloadDto): SessaoPayloadDto {
     const { id_filme, id_sala, horario, preco } = body;
     return { id_filme, id_sala, horario, preco };
   }
@@ -43,13 +39,20 @@ class SessoesController {
     const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
 
     if (!hasPagination) {
-      const sessoes = await Sessao.findAll();
-      return res.status(200).json(sessoes);
+      const result = await getCachedOrLoad(CACHE_NAMESPACE, "all", () => Sessao.findAll());
+      res.setHeader("X-Cache", result.status);
+      return res.status(200).json(result.value);
     }
 
     const { page, limit, offset } = SessoesController.parsePagination(req.query);
-    const { rows, count } = await Sessao.findAndCountAll({ limit, offset });
+    const result = await getCachedOrLoad(
+      CACHE_NAMESPACE,
+      `page:${page}:limit:${limit}`,
+      () => Sessao.findAndCountAll({ limit, offset }),
+    );
+    const { rows, count } = result.value;
 
+    res.setHeader("X-Cache", result.status);
     return res.status(200).json({
       data: rows,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
@@ -57,14 +60,24 @@ class SessoesController {
   }
 
   static async getById(req: Request, res: Response) {
-    const sessao = await SessoesController.findOrNotFound(Number(req.params.id), res);
-    if (!sessao) return;
+    const id = Number(req.params.id);
+    const result = await getCachedOrLoad(CACHE_NAMESPACE, `id:${id}`, async () => {
+      const sessao = await Sessao.findByPk(id);
+      return sessao ? sessao.toJSON() : null;
+    });
+    res.setHeader("X-Cache", result.status);
+    if (!result.value) {
+      return res.status(404).json({ message: SessoesController.NOT_FOUND_MESSAGE });
+    }
 
-    return res.status(200).json(sessao);
+    return res.status(200).json(result.value);
   }
 
   static async create(req: Request, res: Response) {
-    const sessao = await Sessao.create(SessoesController.toPayload(req.body as SessaoPayload));
+    const sessao = await Sessao.create(SessoesController.toPayload(req.body as SessaoPayloadDto));
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "sessao.created", entity: "sessao", entityId: sessao.id_sessao });
+    res.setHeader("X-Cache-Invalidated", "true");
     return res.status(201).json(sessao);
   }
 
@@ -72,7 +85,10 @@ class SessoesController {
     const sessao = await SessoesController.findOrNotFound(Number(req.params.id), res);
     if (!sessao) return;
 
-    await sessao.update(SessoesController.toPayload(req.body as SessaoPayload));
+    await sessao.update(SessoesController.toPayload(req.body as SessaoPayloadDto));
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "sessao.updated", entity: "sessao", entityId: sessao.id_sessao });
+    res.setHeader("X-Cache-Invalidated", "true");
     return res.status(200).json(sessao);
   }
 
@@ -81,13 +97,16 @@ class SessoesController {
     if (!sessao) return;
     try {
       await sessao.destroy();
-      return res.status(200).json({ message: "Sessao removida com sucesso." });
     } catch (error) {
       if (SessoesController.isForeignKeyConstraintError(error)) {
         return res.status(409).json({ message: "Nao e possivel remover sessao com ingressos cadastrados." });
       }
-      return res.status(500).json({ message: "Erro interno do servidor." });
+      throw error;
     }
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "sessao.deleted", entity: "sessao", entityId: sessao.id_sessao });
+    res.setHeader("X-Cache-Invalidated", "true");
+    return res.status(200).json({ message: "Sessao removida com sucesso." });
   }
 }
 

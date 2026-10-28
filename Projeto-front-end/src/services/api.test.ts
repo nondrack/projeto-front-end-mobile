@@ -40,7 +40,7 @@ describe("api service", () => {
 
     await api.get<{ ok: boolean }>("/filmes");
 
-    expect(fetchMock).toHaveBeenCalledWith("https://cinema.local/api/filmes", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/filmes", {
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer token-de-teste",

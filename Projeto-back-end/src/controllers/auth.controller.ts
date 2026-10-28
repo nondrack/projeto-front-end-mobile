@@ -4,34 +4,19 @@ import jwt from "jsonwebtoken";
 import User from "../models/User";
 import { JWT_EXPIRES_IN, JWT_SECRET } from "../config/auth";
 import { isValidEmail } from "../utils/validators";
-
-interface LoginBody {
-  email?: string;
-  senha?: string;
-}
-
-interface LoginInput {
-  email: string;
-  senha: string;
-}
-
-interface AuthPayload {
-  id_usuario: number;
-  email: string;
-  tipo_usuario: string;
-}
+import type { AuthPayloadDto, LoginInputDto, LoginRequestDto } from "../dtos/auth.dto";
 
 class AuthController {
   private static readonly INVALID_CREDENTIALS_MESSAGE = "Email ou senha invalidos.";
 
-  private static normalizeLogin(body: LoginBody): LoginInput {
+  private static normalizeLogin(body: LoginRequestDto): LoginInputDto {
     return {
       email: String(body.email || "").trim().toLowerCase(),
       senha: String(body.senha || ""),
     };
   }
 
-  private static isLoginInputValid(input: LoginInput, res: Response): boolean {
+  private static isLoginInputValid(input: LoginInputDto, res: Response): boolean {
     if (!input.email || !input.senha) {
       res.status(400).json({ message: "Email e senha sao obrigatorios." });
       return false;
@@ -45,7 +30,7 @@ class AuthController {
     return true;
   }
 
-  private static buildPayload(user: User): AuthPayload {
+  private static buildPayload(user: User): AuthPayloadDto {
     return {
       id_usuario: Number(user.get("id_usuario")),
       email: String(user.get("email")),
@@ -72,7 +57,7 @@ class AuthController {
   }
 
   static async login(req: Request, res: Response) {
-    const input = AuthController.normalizeLogin(req.body as LoginBody);
+    const input = AuthController.normalizeLogin(req.body as LoginRequestDto);
     if (!AuthController.isLoginInputValid(input, res)) return;
 
     const user = await User.findOne({ where: { email: input.email } });

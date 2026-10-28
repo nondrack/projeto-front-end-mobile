@@ -1,18 +1,35 @@
 services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - app-network
+
   database:
     image: mysql:9.1.0
-    container_name: meu-mysql
-    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
-      MYSQL_DATABASE: cinema_db
-      MYSQL_USER: app
-      MYSQL_PASSWORD: 123456
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configure MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cinema_db}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Configure MYSQL_PASSWORD in .env}
     ports:
-      - "3307:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./Projeto-back-end/banco.sql:/docker-entrypoint-initdb.d/banco.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
     networks:
       - app-network
 
@@ -20,46 +37,63 @@ services:
     build:
       context: ./Projeto-back-end
       dockerfile: Dockerfile
-    container_name: back_service
+    init: true
     ports:
-      - "3000:3000"
+      - "${BACKEND_PORT:-3000}:3000"
     environment:
       PORT: 3000
+      REDIS_URL: redis://redis:6379
       DB_HOST: database
       DB_PORT: 3306
-      DB_NAME: cinema_db
-      DB_USER: app
-      DB_PASS: 123456
+      DB_NAME: ${MYSQL_DATABASE:-cinema_db}
+      DB_USER: ${MYSQL_USER:-app}
+      DB_PASS: ${MYSQL_PASSWORD:?Configure MYSQL_PASSWORD in .env}
     depends_on:
-      - database
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
     networks:
       - app-network
-    restart: on-failure
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./Projeto-front-end
       dockerfile: Dockerfile
-    container_name: frontend-container
+    init: true
     environment:
-      - HOST=0.0.0.0
-      - PORT=3000
-      - CHOKIDAR_USEPOLLING=true
+      HOST: 0.0.0.0
+      PORT: 3000
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
     networks:
       - app-network
-    restart: on-failure
+    restart: unless-stopped
 
   mobile:
     build:
       context: ./Projeto-front-end-mobile
       dockerfile: Dockerfile
-    container_name: mobile-container
+    init: true
     working_dir: /app
     environment:
       EXPO_PUBLIC_API_URL: http://host.docker.internal:3000
-      HOST: localhost
+      HOST: 0.0.0.0
       PORT: 8081
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
@@ -71,28 +105,31 @@ services:
       - "19001:19001"
       - "19002:19002"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - app-network
-    restart: on-failure
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
-    container_name: nginx-proxy
+    init: true
     ports:
-      - "18080:80"
-      - "18443:443"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - app-network
-    restart: on-failure
+    restart: unless-stopped
 
 volumes:
   mysql-data:

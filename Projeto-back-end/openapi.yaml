@@ -1,0 +1,918 @@
+openapi: 3.0.3
+info:
+  title: Cinema API
+  version: 0.1.0
+  description: >
+    Contrato inicial para os principais endpoints observados em src/app.ts.
+    Validar schemas e códigos com respostas reais antes de estabilizar o contrato.
+servers:
+  - url: http://localhost:3000
+    description: API local direta
+  - url: https://cinema.local/api
+    description: Entrada pelo Nginx local; o proxy remove o prefixo /api
+tags:
+  - name: Autenticação
+  - name: Catálogo
+  - name: Filmes
+  - name: Sessões
+  - name: Compras
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      security: []
+      summary: Autentica usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Token JWT e dados públicos do usuário
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /catalogo/filmes:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Lista filmes públicos
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Filmes; listagem paginada quando page ou limit é fornecido
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Filme"
+                  - $ref: "#/components/schemas/PaginatedFilmes"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /catalogo/filmes/{id}:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Consulta filme público por ID
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Filme
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Filme"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /catalogo/sessoes:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Lista sessões públicas
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Sessões; listagem paginada quando page ou limit é fornecido
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Sessao"
+                  - $ref: "#/components/schemas/PaginatedSessoes"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /catalogo/sessoes/{id}:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Consulta sessão pública por ID
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sessão
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessao"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /filmes:
+    get:
+      tags: [Filmes]
+      summary: Lista filmes para administração
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Lista ou página de filmes
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Filme"
+                  - $ref: "#/components/schemas/PaginatedFilmes"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Filmes]
+      summary: Cadastra filme
+      description: Requer papel de administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilmeInput"
+      responses:
+        "201":
+          description: Filme criado e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Filme"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /filmes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Filmes]
+      summary: Consulta filme para administração
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Filme
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Filme"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Filmes]
+      summary: Atualiza filme
+      description: Requer papel de administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilmeInput"
+      responses:
+        "200":
+          description: Filme atualizado e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Filme"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Filmes]
+      summary: Exclui filme
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Filme removido e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /sessoes:
+    get:
+      tags: [Sessões]
+      summary: Lista sessões para administração
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Lista ou página de sessões
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Sessao"
+                  - $ref: "#/components/schemas/PaginatedSessoes"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Sessões]
+      summary: Cadastra sessão
+      description: Requer papel de administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessaoInput"
+      responses:
+        "201":
+          description: Sessão criada e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessao"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /sessoes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Sessões]
+      summary: Consulta sessão para administração
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Sessão
+          headers:
+            X-Cache:
+              $ref: "#/components/headers/CacheStatus"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessao"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Sessões]
+      summary: Atualiza sessão
+      description: Requer papel de administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessaoInput"
+      responses:
+        "200":
+          description: Sessão atualizada e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessao"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Sessões]
+      summary: Exclui sessão
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Sessão removida e cache invalidado
+          headers:
+            X-Cache-Invalidated:
+              schema:
+                type: string
+                example: "true"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /me/compras:
+    get:
+      tags: [Compras]
+      summary: Consulta compras do usuário autenticado
+      responses:
+        "200":
+          description: Compras do usuário autenticado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /catalogo/assentos:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Lista assentos públicos
+      responses:
+        "200":
+          description: Assentos do catálogo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assento"
+  /catalogo/assentos/{id}:
+    get:
+      tags: [Catálogo]
+      security: []
+      summary: Consulta assento público por ID
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Assento
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assento"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /users:
+    get:
+      tags: [Autenticação]
+      summary: Lista usuários
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Autenticação]
+      security: []
+      summary: Registra usuário cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegistration"
+      responses:
+        "201":
+          description: Usuário criado; senha não é retornada
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /users/{id}:
+    get:
+      tags: [Autenticação]
+      summary: Consulta perfil de usuário
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Perfil autorizado
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Autenticação]
+      summary: Atualiza o próprio perfil de usuário
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegistration"
+      responses:
+        "200":
+          description: Perfil atualizado sem retornar senha
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /clientes/me:
+    get:
+      tags: [Autenticação]
+      summary: Consulta perfil do cliente autenticado
+      responses:
+        "200":
+          description: Perfil do cliente
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Autenticação]
+      summary: Cria ou atualiza perfil do cliente autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientProfileInput"
+      responses:
+        "200":
+          description: Perfil existente atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+        "201":
+          description: Perfil criado
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /ingressos:
+    get:
+      tags: [Compras]
+      summary: Lista ingressos
+      responses:
+        "200":
+          description: Ingressos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Compras]
+      summary: Cria ingresso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketInput"
+      responses:
+        "201":
+          description: Ingresso criado
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /ingressos/{id}:
+    get:
+      tags: [Compras]
+      summary: Consulta ingresso por ID
+      description: Requer papel de administrador.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Ingresso ou null quando não existe (comportamento atual)
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /pagamentos:
+    get:
+      tags: [Compras]
+      summary: Lista pagamentos
+      description: Requer papel de administrador.
+      responses:
+        "200":
+          description: Pagamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Compras]
+      summary: Registra pagamento para ingresso do usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Pagamento registrado
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /pagamentos/{id}:
+    get:
+      tags: [Compras]
+      summary: Consulta pagamento por ID
+      description: Requer papel de administrador.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Pagamento ou null quando não existe (comportamento atual)
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+  headers:
+    CacheStatus:
+      description: Cache result for catalog reads
+      schema:
+        type: string
+        enum: [HIT, MISS, BYPASS]
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Token ausente, inválido ou expirado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Papel sem permissão para esta operação
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Registro não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Conflito com registros relacionados
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Erro inesperado, correlacionável por requestId
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          type: object
+          properties:
+            id_usuario:
+              type: integer
+            nome:
+              type: string
+            email:
+              type: string
+            tipo_usuario:
+              type: string
+              enum: [admin, funcionario, cliente]
+    Filme:
+      type: object
+      properties:
+        id_filme:
+          type: integer
+        titulo:
+          type: string
+        genero:
+          type: string
+          nullable: true
+        classificacao_etaria:
+          type: string
+          nullable: true
+        duracao:
+          type: integer
+          nullable: true
+        sinopse:
+          type: string
+          nullable: true
+        poster_url:
+          type: string
+          nullable: true
+        data_lancamento:
+          type: string
+          format: date-time
+          nullable: true
+    FilmeInput:
+      type: object
+      properties:
+        titulo:
+          type: string
+        genero:
+          type: string
+        classificacao_etaria:
+          type: string
+        duracao:
+          type: integer
+        sinopse:
+          type: string
+        poster_url:
+          type: string
+        data_lancamento:
+          type: string
+          format: date
+    Sessao:
+      type: object
+      properties:
+        id_sessao:
+          type: integer
+        id_filme:
+          type: integer
+        id_sala:
+          type: integer
+        horario:
+          type: string
+          format: date-time
+        preco:
+          type: number
+          format: decimal
+    SessaoInput:
+      type: object
+      required: [id_filme, id_sala, horario, preco]
+      properties:
+        id_filme:
+          type: integer
+        id_sala:
+          type: integer
+        horario:
+          type: string
+          format: date-time
+        preco:
+          type: number
+          format: decimal
+    Assento:
+      type: object
+      properties:
+        id_assento:
+          type: integer
+        id_sala:
+          type: integer
+        numero:
+          type: string
+        fila:
+          type: string
+    UserRegistration:
+      type: object
+      required: [nome, cpf, email, senha]
+      properties:
+        nome:
+          type: string
+        cpf:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+    ClientProfileInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+        telefone:
+          type: string
+        data_nascimento:
+          type: string
+          format: date
+    TicketInput:
+      type: object
+      required: [id_sessao, id_cliente, id_assento]
+      properties:
+        id_sessao:
+          type: integer
+        id_cliente:
+          type: integer
+        id_assento:
+          type: integer
+    PaymentInput:
+      type: object
+      required: [id_ingresso]
+      properties:
+        id_ingresso:
+          type: integer
+        valor:
+          type: number
+          format: decimal
+        metodo_pagamento:
+          type: string
+          enum: [cartao, pix, dinheiro]
+        data_pagamento:
+          type: string
+          format: date-time
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+    PaginatedFilmes:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filme"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    PaginatedSessoes:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sessao"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        requestId:
+          type: string

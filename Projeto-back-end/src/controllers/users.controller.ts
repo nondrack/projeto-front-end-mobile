@@ -2,21 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import User from "../models/User";
 import { isStrongPassword, isValidCPF, isValidEmail } from "../utils/validators";
-
-interface UserRequestBody {
-    nome?: string;
-    cpf?: string;
-    email?: string;
-    senha?: string;
-    tipo_usuario?: string;
-}
-
-interface NormalizedUserInput {
-    nome: string;
-    cpf: string;
-    email: string;
-    senha: string;
-}
+import type { NormalizedUserInputDto, UserRequestDto } from "../dtos/user.dto";
 
 type AuthenticatedRequest = Request & {
     authUser?: {
@@ -30,7 +16,7 @@ class UsersController {
     private static readonly REQUIRED_FIELDS_MESSAGE = "Nome, cpf, email e senha sao obrigatorios.";
     private static readonly WEAK_PASSWORD_MESSAGE = "Senha fraca. Use no minimo 8 caracteres com maiuscula, minuscula, numero e simbolo.";
 
-    private static normalizeInput(body: UserRequestBody): NormalizedUserInput {
+    private static normalizeInput(body: UserRequestDto): NormalizedUserInputDto {
         return {
             nome: String(body.nome || "").trim(),
             cpf: String(body.cpf || "").replace(/\D/g, ""),
@@ -39,11 +25,11 @@ class UsersController {
         };
     }
 
-    private static hasRequiredFields(input: NormalizedUserInput): boolean {
+    private static hasRequiredFields(input: NormalizedUserInputDto): boolean {
         return Boolean(input.nome && input.cpf && input.email && input.senha);
     }
 
-    private static isInputValid(input: NormalizedUserInput, res: Response): boolean {
+    private static isInputValid(input: NormalizedUserInputDto, res: Response): boolean {
         if (!UsersController.hasRequiredFields(input)) {
             res.status(400).json({ message: UsersController.REQUIRED_FIELDS_MESSAGE });
             return false;
@@ -98,7 +84,7 @@ class UsersController {
         return role === "admin" || role === "adm" || Number(authUser?.id_usuario) === targetId;
     }
 
-    private static async ensureUniqueForCreate(input: NormalizedUserInput, res: Response): Promise<boolean> {
+    private static async ensureUniqueForCreate(input: NormalizedUserInputDto, res: Response): Promise<boolean> {
         const emailExists = await User.findOne({ where: { email: input.email } });
         if (emailExists) {
             res.status(409).json({ message: "Este email ja esta cadastrado." });
@@ -147,7 +133,7 @@ class UsersController {
     }
 
     static async create(req: Request, res: Response) {
-        const payload = req.body as UserRequestBody;
+        const payload = req.body as UserRequestDto;
         const input = UsersController.normalizeInput(payload);
         if (!UsersController.isInputValid(input, res)) return;
         if (!(await UsersController.ensureUniqueForCreate(input, res))) return;
@@ -173,7 +159,7 @@ class UsersController {
             return res.status(403).json({ message: "Voce so pode editar seu proprio usuario." });
         }
 
-        const input = UsersController.normalizeInput(req.body as UserRequestBody);
+        const input = UsersController.normalizeInput(req.body as UserRequestDto);
         if (!UsersController.isInputValid(input, res)) return;
 
         const user = await UsersController.findByIdOrNotFound(targetId, res);

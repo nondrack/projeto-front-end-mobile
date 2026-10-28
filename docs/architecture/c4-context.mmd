@@ -1,0 +1,11 @@
+flowchart LR
+    client["Cliente de cinema<br/>Web ou mobile"]
+    staff["Administrador/funcionário<br/>Web"]
+    cinema["Cinema<br/>Sistema em desenvolvimento"]
+    payment["Provedor de pagamento<br/>Não identificado; integração externa não confirmada"]
+    ops["Equipe de desenvolvimento/operação"]
+
+    client -->|"consulta catálogo, autenticação e fluxos de compra"| cinema
+    staff -->|"gerencia filmes, sessões e recursos"| cinema
+    cinema -.->|"integração futura/pendente de confirmação"| payment
+    ops -->|"desenvolve, testa e opera"| cinema

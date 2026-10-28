@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://cinema.local/api";
+const API_BASE_URL = "/api";
 
 type RequestOptions = RequestInit & { headers?: HeadersInit };
 

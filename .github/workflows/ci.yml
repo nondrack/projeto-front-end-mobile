@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy on the configured self-hosted Compose runner
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Projeto-back-end
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Projeto-back-end/package-lock.json
+      - run: npm ci
+      - run: npm run openapi:validate
+      - run: npm run build
+      - run: npm test
+
+  frontend:
+    name: Web build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Projeto-front-end
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Projeto-front-end/package-lock.json
+      - run: npm ci
+      - run: npm test -- --watchAll=false
+        env:
+          CI: "true"
+      - run: npm run build
+
+  deploy-compose:
+    name: Manual Compose deploy
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.deploy
+    needs: [backend, frontend]
+    runs-on: [self-hosted, cinema-compose]
+    environment: compose
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare deployment configuration
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+        run: |
+          test -n "$MYSQL_ROOT_PASSWORD" || { echo "MYSQL_ROOT_PASSWORD is required"; exit 1; }
+          test -n "$MYSQL_PASSWORD" || { echo "MYSQL_PASSWORD is required"; exit 1; }
+          umask 077
+          printf 'MYSQL_ROOT_PASSWORD=%s\nMYSQL_PASSWORD=%s\n' "$MYSQL_ROOT_PASSWORD" "$MYSQL_PASSWORD" > .env
+      - name: Validate, deploy and report health
+        run: |
+          trap 'rm -f .env' EXIT
+          docker compose config --quiet
+          docker compose up --build --detach --wait
+          docker compose ps
+      - name: Remove deployment configuration
+        if: always()
+        run: rm -f .env

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:verbose": "vitest run --reporter=verbose",
-    "test:failfast": "vitest run --reporter=verbose --bail=1"
+    "test:failfast": "vitest run --reporter=verbose --bail=1",
+    "openapi:validate": "node scripts/validateOpenApi.js"
   },
   "repository": {
     "type": "git",
@@ -35,9 +36,11 @@
     "mysql2": "^3.18.2",
     "pg": "^8.20.0",
     "pg-hstore": "^2.3.4",
+    "redis": "^6.3.0",
     "sequelize": "^6.37.8"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
     "nodemon": "^3.1.14",

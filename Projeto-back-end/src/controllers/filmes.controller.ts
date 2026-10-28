@@ -1,17 +1,10 @@
 import { Request, Response } from "express";
 import Filme from "../models/Filme";
+import { getCachedOrLoad, invalidateCache } from "../services/redisCache.service";
+import { publishDomainEvent } from "../services/redisEventBus.service";
+import type { FilmePayloadDto } from "../dtos/filme.dto";
 
-interface FilmePayload {
-  [key: string]: unknown;
-  [key: symbol]: unknown;
-  titulo?: string;
-  genero?: string;
-  classificacao_etaria?: string;
-  duracao?: number;
-  sinopse?: string;
-  poster_url?: string;
-  data_lancamento?: string;
-}
+const CACHE_NAMESPACE = "catalog:filmes";
 
 class FilmesController {
   private static readonly NOT_FOUND_MESSAGE = "Filme nao encontrado.";
@@ -28,7 +21,7 @@ class FilmesController {
     return { page, limit, offset: (page - 1) * limit };
   }
 
-  private static toPayload(body: FilmePayload): FilmePayload {
+  private static toPayload(body: FilmePayloadDto): FilmePayloadDto {
     const {
       titulo,
       genero,
@@ -55,13 +48,20 @@ class FilmesController {
     const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
 
     if (!hasPagination) {
-      const filmes = await Filme.findAll();
-      return res.status(200).json(filmes);
+      const result = await getCachedOrLoad(CACHE_NAMESPACE, "all", () => Filme.findAll());
+      res.setHeader("X-Cache", result.status);
+      return res.status(200).json(result.value);
     }
 
     const { page, limit, offset } = FilmesController.parsePagination(req.query);
-    const { rows, count } = await Filme.findAndCountAll({ limit, offset });
+    const result = await getCachedOrLoad(
+      CACHE_NAMESPACE,
+      `page:${page}:limit:${limit}`,
+      () => Filme.findAndCountAll({ limit, offset }),
+    );
+    const { rows, count } = result.value;
 
+    res.setHeader("X-Cache", result.status);
     return res.status(200).json({
       data: rows,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
@@ -69,14 +69,24 @@ class FilmesController {
   }
 
   static async getById(req: Request, res: Response) {
-    const filme = await FilmesController.findOrNotFound(Number(req.params.id), res);
-    if (!filme) return;
+    const id = Number(req.params.id);
+    const result = await getCachedOrLoad(CACHE_NAMESPACE, `id:${id}`, async () => {
+      const filme = await Filme.findByPk(id);
+      return filme ? filme.toJSON() : null;
+    });
+    res.setHeader("X-Cache", result.status);
+    if (!result.value) {
+      return res.status(404).json({ message: FilmesController.NOT_FOUND_MESSAGE });
+    }
 
-    return res.status(200).json(filme);
+    return res.status(200).json(result.value);
   }
 
   static async create(req: Request, res: Response) {
-    const filme = await Filme.create(FilmesController.toPayload(req.body as FilmePayload));
+    const filme = await Filme.create(FilmesController.toPayload(req.body as FilmePayloadDto));
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "filme.created", entity: "filme", entityId: filme.id_filme });
+    res.setHeader("X-Cache-Invalidated", "true");
     return res.status(201).json(filme);
   }
 
@@ -84,7 +94,10 @@ class FilmesController {
     const filme = await FilmesController.findOrNotFound(Number(req.params.id), res);
     if (!filme) return;
 
-    await filme.update(FilmesController.toPayload(req.body as FilmePayload));
+    await filme.update(FilmesController.toPayload(req.body as FilmePayloadDto));
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "filme.updated", entity: "filme", entityId: filme.id_filme });
+    res.setHeader("X-Cache-Invalidated", "true");
 
     return res.status(200).json(filme);
   }
@@ -94,13 +107,16 @@ class FilmesController {
     if (!filme) return;
     try {
       await filme.destroy();
-      return res.status(200).json({ message: "Filme removido com sucesso." });
     } catch (error) {
       if (FilmesController.isForeignKeyConstraintError(error)) {
         return res.status(409).json({ message: "Nao e possivel remover filme com sessoes cadastradas." });
       }
-      return res.status(500).json({ message: "Erro interno do servidor." });
+      throw error;
     }
+    await invalidateCache(CACHE_NAMESPACE);
+    await publishDomainEvent({ type: "filme.deleted", entity: "filme", entityId: filme.id_filme });
+    res.setHeader("X-Cache-Invalidated", "true");
+    return res.status(200).json({ message: "Filme removido com sucesso." });
   }
 }
 

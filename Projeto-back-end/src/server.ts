@@ -1,6 +1,9 @@
 import app from "./app";
 import sequelize from "./config/database";
 import { DataTypes } from "sequelize";
+import { connectRedis } from "./services/redisCache.service";
+import { connectEventBus } from "./services/redisEventBus.service";
+import logger from "./utils/logger";
 
 const port = 3000;
 
@@ -43,15 +46,17 @@ async function ensureUsuariosCpfColumn() {
 
 async function startServer() {
   try {
+    await connectRedis();
+    await connectEventBus();
     await sequelize.authenticate();
     await ensureUsuariosCpfColumn();
     await sequelize.sync();
 
     app.listen(port, () => {
-      console.log(`Servidor rodando na porta ${port}`);
+      logger.info("server.started", { port });
     });
   } catch (error) {
-    console.error("Falha ao iniciar o servidor:", error);
+    logger.error("server.startup.failed", error, { port });
     process.exit(1);
   }
 }

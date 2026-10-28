@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response, Router } from 'express';
+import express, { Request, Response, Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
@@ -13,10 +13,14 @@ import AssentosController from './controllers/assentos.controller';
 import SessoesController from './controllers/sessoes.controller';
 import IngressosController from './controllers/ingressos.controller';
 import PagamentosController from './controllers/pagamentos.controller';
+import errorHandler from './middlewares/errorHandler.middleware';
+import { requestLogger } from './middlewares/requestLogger.middleware';
 import { buildSafeFilename, MAX_IMAGE_SIZE, validateImageFile } from './utils/upload';
 
 const app = express();
 const uploadDir = path.join(__dirname, '..', 'uploads');
+
+app.use(requestLogger);
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -131,26 +135,14 @@ router.get('/pagamentos/:id', requireAuth, requireAdmin, PagamentosController.ge
 
 app.use(router);
 
-app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(error);
-
-    if (res.headersSent) {
-        return next(error);
-    }
-
-    if (error instanceof multer.MulterError) {
-        if (error.code === 'LIMIT_FILE_SIZE') {
-            return res.status(413).json({ message: 'Arquivo muito grande. O tamanho máximo permitido é 2MB.' });
-        }
-
-        return res.status(400).json({ message: 'Erro ao receber o arquivo enviado.' });
-    }
-
-    if (error.message.startsWith('Formato inválido.')) {
-        return res.status(400).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: 'Erro interno do servidor.' });
+app.use((req: Request, res: Response) => {
+    return res.status(404).json({
+        message: 'Rota nao encontrada.',
+        code: 'ROUTE_NOT_FOUND',
+        requestId: req.requestId || 'unavailable',
+    });
 });
+
+app.use(errorHandler);
 
 export default app;

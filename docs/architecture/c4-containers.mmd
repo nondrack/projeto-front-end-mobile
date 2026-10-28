@@ -1,0 +1,23 @@
+flowchart TB
+    browser["Navegador web"]
+    device["Dispositivo com aplicativo Expo/React Native"]
+    proxy["Nginx<br/>TLS local e reverse proxy"]
+    frontend["Frontend Web<br/>React"]
+    api["Backend API<br/>Node.js, Express, TypeScript<br/>monólito modular (direção proposta)"]
+    mysql[("MySQL<br/>dados relacionais persistentes")]
+    redis[("Redis<br/>cache TTL e Pub/Sub volátil")]
+    disk[("Volume Docker<br/>persistência MySQL")]
+    expo["Expo dev server<br/>container opcional para desenvolvimento"]
+
+    browser -->|"HTTPS: páginas e chamadas /api/*"| proxy
+    proxy -->|"/ → frontend"| frontend
+    proxy -->|"/api/ → API (remove /api)"| api
+    device -->|"HTTP API via URL pública configurada"| api
+    device -.->|"bundle de desenvolvimento"| expo
+    api -->|"SQL via Sequelize/mysql2"| mysql
+    mysql --- disk
+    api -->|"cache-aside"| redis
+    api -->|"publish/subscribe cinema:events"| redis
+
+    classDef current fill:#e8f3ff,stroke:#286090,color:#111;
+    class browser,device,proxy,frontend,api,mysql,redis,disk,expo current;

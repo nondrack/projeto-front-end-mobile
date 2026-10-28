@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessoesController from "../src/controllers/sessoes.controller";
 import Sessao from "../src/models/Sessao";
 
+const { cacheMocks } = vi.hoisted(() => ({
+  cacheMocks: {
+    getCachedOrLoad: vi.fn(),
+    invalidateCache: vi.fn(),
+    publishDomainEvent: vi.fn().mockResolvedValue({}),
+  },
+}));
+
 vi.mock("../src/models/Sessao", () => ({
   default: {
     findAndCountAll: vi.fn(),
@@ -10,16 +18,28 @@ vi.mock("../src/models/Sessao", () => ({
   },
 }));
 
+vi.mock("../src/services/redisCache.service", () => cacheMocks);
+vi.mock("../src/services/redisEventBus.service", () => ({
+  publishDomainEvent: cacheMocks.publishDomainEvent,
+}));
+
 function createResponse() {
   const res: any = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
+    setHeader: vi.fn().mockReturnThis(),
   };
   return res;
 }
 
 describe("🎟️ CRUD DE SESSOES", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cacheMocks.getCachedOrLoad.mockImplementation(async (_namespace, _key, loader) => ({
+      value: await loader(),
+      status: "MISS",
+    }));
+  });
 
   it("✅ SUCESSO: deve listar sessoes com paginacao", async () => {
     (Sessao as any).findAndCountAll.mockResolvedValue({ rows: [], count: 0 });
@@ -30,6 +50,7 @@ describe("🎟️ CRUD DE SESSOES", () => {
     await SessoesController.findAll(req as any, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.setHeader).toHaveBeenCalledWith("X-Cache", "MISS");
   });
 
   it("✅ SUCESSO: deve criar sessao com sucesso", async () => {
@@ -41,6 +62,13 @@ describe("🎟️ CRUD DE SESSOES", () => {
     await SessoesController.create(req as any, res);
 
     expect(res.status).toHaveBeenCalledWith(201);
+    expect(cacheMocks.invalidateCache).toHaveBeenCalledWith("catalog:sessoes");
+    expect(cacheMocks.publishDomainEvent).toHaveBeenCalledWith({
+      type: "sessao.created",
+      entity: "sessao",
+      entityId: 1,
+    });
+    expect(res.setHeader).toHaveBeenCalledWith("X-Cache-Invalidated", "true");
   });
 
   it("❌ SABOTAGEM CRUD: deve retornar 404 ao atualizar sessao inexistente", async () => {

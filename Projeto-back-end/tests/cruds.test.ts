@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import FilmesController from "../src/controllers/filmes.controller";
 import Filme from "../src/models/Filme";
 
+vi.mock("../src/services/redisCache.service", () => ({
+    getCachedOrLoad: vi.fn(async (_namespace: string, _key: string, loader: () => Promise<unknown>) => ({
+        value: await loader(),
+        status: "MISS",
+    })),
+    invalidateCache: vi.fn(),
+}));
+
+vi.mock("../src/services/redisEventBus.service", () => ({
+    publishDomainEvent: vi.fn().mockResolvedValue({}),
+}));
+
 vi.mock("../src/models/Filme", () => ({
     default: {
         findAndCountAll: vi.fn(),
@@ -10,7 +22,12 @@ vi.mock("../src/models/Filme", () => ({
 }));
 
 function createResponse() {
-    const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), send: vi.fn().mockReturnThis() };
+    const res: any = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn().mockReturnThis(),
+        setHeader: vi.fn().mockReturnThis(),
+        send: vi.fn().mockReturnThis(),
+    };
     return res;
 }
 
