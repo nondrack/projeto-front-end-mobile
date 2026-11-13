@@ -34,6 +34,16 @@ Os checkboxes significam que o artefato está versionado no repositório, não q
 as decisões foram ratificadas, metas medidas, o deploy executado ou o runbook
 ensaiado.
 
+### Validação técnica local (12/11/2026)
+
+| Verificação | Resultado | Limite |
+|---|---|---|
+| Validador OpenAPI | Aprovado: 19 caminhos documentados encontrados nas rotas de `src/app.ts`. | Confirma estrutura e correspondência de rotas; não substitui comparação de todos os schemas com respostas de execução. |
+| Backend | Build TypeScript aprovado; 16 arquivos de teste e 50 testes aprovados. | Execução local; não comprova integração da stack completa no Docker. |
+| Frontend web | Build de produção aprovado; 1 suíte e 3 testes aprovados. | Não valida cliente mobile nem jornadas ponta a ponta. |
+| Docker Compose, deploy e rollback | Não executados nesta validação: Docker não está disponível no ambiente. | Requer Docker, configuração/secrets de ambiente e ensaio controlado. |
+| Aprovação do Context Map, ADRs e SLOs | Pendente de PO/equipe/operação. | Metas são candidatas e não foram medidas em produção. |
+
 1. Pedir ao PO/equipe que aprovem Context Map, limites dos contextos e modelo
    conceitual de entidades.
 2. Comparar o OpenAPI com respostas reais e completar schemas conforme as
